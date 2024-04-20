@@ -141,7 +141,11 @@ class WaveSpawnPoint : Actor {
     override void PostBeginPlay() {
         if (type) {
             let defs = GetDefaultByType(type);
-            picnum = defs.ResolveState("Spawn").GetSpriteTexture(0);
+            TextureID id; bool success; vector2 newscale;
+            [id,success,newscale] = defs.ResolveState("Spawn").GetSpriteTexture(0);
+
+            picnum = id;
+            scale = newscale * 0.5;
         }
     }
 
