@@ -64,6 +64,8 @@ class HordeModeHandler : EventHandler {
                     if (sp) {
                         sp.type = e.Thing.GetClass();
                         sp.healthgoal = hgoal;
+                        sp.angle = e.Thing.angle;
+                        sp.current = e.Thing;
                         spawns.push(sp);
                     }
                 }
@@ -127,6 +129,8 @@ class HordeModeHandler : EventHandler {
 class WaveSpawnPoint : Actor {
     Class<Actor> type;
 
+    Actor current;
+
     int healthgoal;
     int healthbuffer; // Each CueSpawn call adds to this. When it's higher than healthgoal, spawn the monster.
     bool spawncued;
@@ -150,6 +154,12 @@ class WaveSpawnPoint : Actor {
     }
 
     void CueSpawn(int amt) {
+        if (current) {
+            if (current.bSHOOTABLE && current.health <= 0) {
+            } else {
+                return; // Only one copy of the thing at a time.
+            }
+        }
         if (healthgoal >= 0) {
             healthbuffer = min(int.MAX,healthbuffer+amt); // overflow protection
             if (healthbuffer > healthgoal) {
@@ -168,14 +178,16 @@ class WaveSpawnPoint : Actor {
 
     override void Tick() {
         super.Tick();
-        if (spawncued) {
+        if (spawncued && (type is "Inventory" || !CheckIfSeen())) {
             spawntics--;
             if (spawntics <= 0) {
                 spawncued = false;
                 let it = Spawn(type,pos);
+                it.angle = angle;
                 if (it && healthgoal <= 0 && !(type is "Key")) {
                     it.vel += (frandom(-2,2),frandom(-2,2),frandom(0,4));
                 }
+                current = it;
                 Spawn("TeleportFog",pos);
             }
         }
