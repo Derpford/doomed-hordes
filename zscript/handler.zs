@@ -44,8 +44,6 @@ class HordeModeHandler : EventHandler {
         if (tics >= 10) { return; } // Out of time!
         if (e.Thing is "PlayerPawn") { return; } // Players don't count.
         if (e.Thing.bSHOOTABLE || (e.Thing is "Inventory" && e.Thing.pos != (0,0,0))) {
-            console.printf("Making a spawner for %s",e.Thing.GetTag());
-
             if (e.Thing is "Key") {
                 WaveSpawnPoint sp = WaveSpawnPoint(e.Thing.Spawn("WaveSpawnPoint",e.Thing.pos));
                 if (sp) {
@@ -155,7 +153,8 @@ class WaveSpawnPoint : Actor {
 
     void CueSpawn(int amt) {
         if (current) {
-            if (current.bSHOOTABLE && current.health <= 0) {
+            if (!(current is "Inventory") && current.health <= 0) {
+                current = null;
             } else {
                 return; // Only one copy of the thing at a time.
             }
