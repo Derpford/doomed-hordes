@@ -135,6 +135,7 @@ class WaveSpawnPoint : Actor {
     int spawntics; // How long until we spawn the thing. Used to create a random offset between spawns.
 
     default {
+        +DONTTHRUST;
         RenderStyle "Add";
         Alpha 0.3;
         Scale 0.5;
