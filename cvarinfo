@@ -1,1 +1,3 @@
 server int horde_wavetime = 60;
+
+user bool cl_debug = false;
