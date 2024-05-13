@@ -10,6 +10,13 @@ class HordeModeHandler : EventHandler {
 
     Array<Actor> keyspawns;
 
+    Service patches;
+
+    override void OnRegister() {
+        ServiceIterator it = ServiceIterator.Find("HordePatchService");
+        patches = it.next();
+    }
+
     override void WorldTick() {
         // Set timer.
         wavetime = CVar.GetCVar("horde_wavetime").GetInt();
@@ -43,29 +50,30 @@ class HordeModeHandler : EventHandler {
         if (cname.IndexOf("Fake") >= 0) { return; } // Brutal Doom Platinum compat
         if (tics >= 10) { return; } // Out of time!
         if (e.Thing is "PlayerPawn") { return; } // Players don't count.
-        if (e.Thing.bSHOOTABLE || (e.Thing is "Inventory" && e.Thing.pos != (0,0,0))) {
+        if (e.Thing is "WaveSpawnPoint") { return; } // Don't double-track wavespawnpoints!
+        Debug.Log(String.Format("Checking spawner logic for %s",e.Thing.GetTag()));
+        if (e.Thing.bSHOOTABLE || (e.Thing is "Inventory" && e.Thing.pos != (0,0,0)) || e.Thing is "RandomSpawner") {
             if (e.Thing is "Key") {
                 WaveSpawnPoint sp = WaveSpawnPoint(e.Thing.Spawn("WaveSpawnPoint",e.Thing.pos));
                 if (sp) {
-                    sp.type = e.Thing.GetClass();
+                    sp.type = e.Thing.GetClassName();
                     sp.healthgoal = 0;
                     keyspawns.push(sp);
                 }
                 Inventory inv = Inventory(e.Thing);
                 inv.Destroy();
             } else {
-                if (!(e.Thing is "WaveSpawnPoint")) {
-                    // This is a valid thing to create a spawnpoint for.
-                    int hgoal = 0;
-                    if (e.Thing.bSHOOTABLE) { hgoal = e.Thing.Health; }
-                    WaveSpawnPoint sp = WaveSpawnPoint(e.Thing.Spawn("WaveSpawnPoint",e.Thing.pos));
-                    if (sp) {
-                        sp.type = e.Thing.GetClass();
-                        sp.healthgoal = hgoal;
-                        sp.angle = e.Thing.angle;
-                        sp.current = e.Thing;
-                        spawns.push(sp);
-                    }
+                // This is a non-key thing to create a spawnpoint for.
+                int hgoal = 0;
+                if (e.Thing.bSHOOTABLE) { hgoal = e.Thing.Health; }
+                WaveSpawnPoint sp = WaveSpawnPoint(e.Thing.Spawn("WaveSpawnPoint",e.Thing.pos));
+                if (sp) {
+                    Name type = patches.GetString("getreplacement",e.Thing.GetClassName());
+                    sp.type = type;
+                    sp.healthgoal = hgoal;
+                    sp.angle = e.Thing.angle;
+                    sp.current = e.Thing;
+                    spawns.push(sp);
                 }
             }
         }
@@ -125,7 +133,7 @@ class HordeModeHandler : EventHandler {
 }
 
 class WaveSpawnPoint : Actor {
-    Class<Actor> type;
+    Name type;
 
     Actor current;
 
@@ -136,6 +144,7 @@ class WaveSpawnPoint : Actor {
 
     default {
         +DONTTHRUST;
+        +NOBLOCKMAP;
         RenderStyle "Add";
         Alpha 0.3;
         Scale 0.5;
@@ -143,7 +152,8 @@ class WaveSpawnPoint : Actor {
 
     override void PostBeginPlay() {
         if (type) {
-            let defs = GetDefaultByType(type);
+            Class<Actor> cls = type;
+            let defs = GetDefaultByType(cls);
             TextureID id; bool success; vector2 newscale;
             [id,success,newscale] = defs.ResolveState("Spawn").GetSpriteTexture(0);
 
@@ -178,13 +188,14 @@ class WaveSpawnPoint : Actor {
 
     override void Tick() {
         super.Tick();
-        if (spawncued && (type is "Inventory" || !CheckIfSeen())) {
+        Class<Actor> cls = type;
+        if (spawncued && (cls is "Inventory" || !CheckIfSeen())) {
             spawntics--;
             if (spawntics <= 0) {
                 spawncued = false;
                 let it = Spawn(type,pos);
                 it.angle = angle;
-                if (it && healthgoal <= 0 && !(type is "Key")) {
+                if (it && healthgoal <= 0 && !(cls is "Key")) {
                     it.vel += (frandom(-2,2),frandom(-2,2),frandom(0,4));
                 }
                 current = it;
